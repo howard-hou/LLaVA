@@ -53,8 +53,15 @@ def eval_model(args):
             if getattr(model.config, 'mm_use_im_start_end', False):
                 qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs
             else:
-                qs = DEFAULT_IMAGE_TOKEN + '\n' + qs
-            cur_prompt = '<image>' + '\n' + cur_prompt
+                if args.image_position == 'first':
+                    qs = DEFAULT_IMAGE_TOKEN + '\n' + qs
+                    cur_prompt = '<image>' + '\n' + cur_prompt
+                elif args.image_position == 'last':
+                    qs = qs + '\n' + DEFAULT_IMAGE_TOKEN
+                    cur_prompt = cur_prompt + '\n' + DEFAULT_IMAGE_TOKEN
+                elif args.image_position == 'middle':
+                    qs = qs + '\n' + DEFAULT_IMAGE_TOKEN + '\n' + qs
+                    cur_prompt = cur_prompt + '\n' + DEFAULT_IMAGE_TOKEN + '\n' + cur_prompt
         else:
             images = None
             image_sizes = None
@@ -106,6 +113,7 @@ if __name__ == "__main__":
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--answer-prompter", action="store_true")
     parser.add_argument("--single-pred-prompt", action="store_true")
+    parser.add_argument("--image-position", default="first")
     args = parser.parse_args()
 
     eval_model(args)

@@ -43,7 +43,14 @@ class CustomDataset(Dataset):
         if self.model_config.mm_use_im_start_end:
             qs = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + qs
         else:
-            qs = DEFAULT_IMAGE_TOKEN + '\n' + qs
+            if self.model_config.image_position == 'first':
+                qs = DEFAULT_IMAGE_TOKEN + '\n' + qs
+            elif self.model_config.image_position == 'last':
+                qs = qs + '\n' + DEFAULT_IMAGE_TOKEN
+            elif self.model_config.image_position == 'middle':
+                qs = qs + '\n' + DEFAULT_IMAGE_TOKEN + '\n' + qs
+            else:
+                raise 'wrong image_position'
 
         conv = conv_templates[args.conv_mode].copy()
         conv.append_message(conv.roles[0], qs)
@@ -93,6 +100,7 @@ def eval_model(args):
         args.conv_mode = args.conv_mode + '_mmtag'
         print(f'It seems that this is a plain model, but it is not using a mmtag prompt, auto switching to {args.conv_mode}.')
 
+    model.config.image_position = args.image_position
     data_loader = create_data_loader(questions, args.image_folder, tokenizer, image_processor, model.config)
 
     for (input_ids, image_tensor, image_sizes), line in tqdm(zip(data_loader, questions), total=len(questions)):
@@ -139,6 +147,7 @@ if __name__ == "__main__":
     parser.add_argument("--top_p", type=float, default=None)
     parser.add_argument("--num_beams", type=int, default=1)
     parser.add_argument("--max_new_tokens", type=int, default=128)
+    parser.add_argument("--image-position", type=str, default="first")
     args = parser.parse_args()
 
     eval_model(args)

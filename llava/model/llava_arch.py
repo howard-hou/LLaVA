@@ -12,11 +12,12 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-
+import os
 from abc import ABC, abstractmethod
 
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 
 from .multimodal_encoder.builder import build_vision_tower
 from .multimodal_projector.builder import build_vision_projector
@@ -137,8 +138,33 @@ class LlavaMetaForCausalLM(ABC):
     def get_vision_tower(self):
         return self.get_model().get_vision_tower()
 
+    def grid_pooling(self, image_features, grid_size=-1):
+        if grid_size == -1: # no grid pooling
+            return image_features
+        if grid_size == 0: # take cls token
+            return image_features[:, 0:1, :]
+        if grid_size == 1: # global avg pooling
+            return image_features.mean(dim=1, keepdim=True)
+        cls_features = image_features[:, 0:1, :]
+        image_features = image_features[:, 1:, :] #drop cls token
+        B, L, D = image_features.shape
+        H_or_W = int(L**0.5)
+        image_features = image_features.view(B, H_or_W, H_or_W, D)
+        grid_stride = H_or_W // grid_size
+        image_features = F.avg_pool2d(image_features.permute(0, 3, 1, 2),
+                                      padding=0,
+                                      kernel_size=grid_stride,
+                                      stride=grid_stride)
+        image_features = image_features.permute(0, 2, 3, 1).view(B, -1, D)
+        return torch.cat((cls_features, image_features), dim=1)
+
     def encode_images(self, images):
+        if "GRID_SIZE" in os.environ:
+            vision_tower = self.get_model().get_vision_tower()
+            vision_tower.select_feature = 'cls_patch'
         image_features = self.get_model().get_vision_tower()(images)
+        if "GRID_SIZE" in os.environ:
+            image_features = self.grid_pooling(image_features, int(os.environ["GRID_SIZE"]))
         image_features = self.get_model().mm_projector(image_features)
         return image_features
 

@@ -5,7 +5,7 @@ IFS=',' read -ra GPULIST <<< "$gpu_list"
 
 CHUNKS=${#GPULIST[@]}
 
-CKPT="llava-v1.5-7b_imgfirst"
+CKPT="llava-v1.5-7b_sandwich"
 SPLIT="llava_gqa_testdev_balanced"
 GQADIR="./playground/data/eval/gqa"
 
@@ -18,7 +18,7 @@ for IDX in $(seq 0 $((CHUNKS-1))); do
         --num-chunks $CHUNKS \
         --chunk-idx $IDX \
         --temperature 0 \
-        --image-position first \
+        --image-position middle \
         --conv-mode vicuna_v1 &
 done
 
